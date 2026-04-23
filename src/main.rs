@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 
 #[cfg(windows)]
 mod mcp_client;
@@ -56,8 +56,17 @@ fn cmd_list_profiles() -> Result<()> {
     Ok(())
 }
 
+fn verify_mcp_enabled() -> Result<()> {
+    if !mcp_client::McpSession::can_connect() {
+        bail!("Make sure 'MCP Actions' is enabled in your Stream Deck settings")
+    }
+    Ok(())
+}
+
 #[cfg(windows)]
 fn cmd_add_profile_actions() -> Result<()> {
+    verify_mcp_enabled()?;
+
     let profiles_dir = profiles::get_profiles_dir()?;
     let stream_deck_exe = stream_deck_app::stream_deck_exe_from_running_processes();
     eprintln!("Stopping Stream Deck process");
@@ -90,6 +99,8 @@ fn cmd_add_profile_actions() -> Result<()> {
 
 #[cfg(windows)]
 fn cmd_list_actions() -> Result<()> {
+    verify_mcp_enabled()?;
+
     let root = profiles::get_profiles_dir()?;
     let (profile_dir, _) = profiles::find_ai_stream_deck_profile(&root)?;
     let actions = profiles::iter_ai_profile_actions(&profile_dir)?;
@@ -106,14 +117,15 @@ fn cmd_list_actions() -> Result<()> {
 
 #[cfg(windows)]
 async fn cmd_run_action(action_id: &str) -> Result<()> {
+    verify_mcp_enabled()?;
+    
     let mut session = mcp_client::McpSession::connect()
         .await
         .with_context(|| format!("connect to {}", mcp_client::PIPE_NAME))?;
+    
     let tools_resp = session.tools_list().await?;
     let tool_name = mcp_client::resolve_run_action_tool(&tools_resp)?;
-
     session.call_tool(&tool_name, serde_json::json!({ "id": action_id })).await?;
-
     Ok(())
 }
 

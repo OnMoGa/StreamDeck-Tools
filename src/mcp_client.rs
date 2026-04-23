@@ -95,6 +95,12 @@ pub struct McpSession {
 }
 
 impl McpSession {
+    pub fn can_connect() -> bool {
+        ClientOptions::new()
+            .open(PIPE_NAME)
+            .is_ok()
+    }
+    
     pub async fn connect() -> Result<Self> {
         let client = ClientOptions::new()
             .open(PIPE_NAME)
